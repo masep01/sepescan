@@ -52,8 +52,8 @@ def create_reports_dir(args):
 def main():
 	# Parser configuration
 	mainParser = argparse.ArgumentParser(
-							prog='SepeScan',
-							description='Scanning tool'
+		prog='SepeScan',
+		description='Scanning tool'
 	)
 
 	subParsers = mainParser.add_subparsers(dest='mode', help='Choose a mode')
