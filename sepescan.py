@@ -2,10 +2,39 @@
 
 import argparse
 import os
+import subprocess
+import signal
+from termcolor import colored
+import pyfiglet 
 
 def scan(args):
-	print('----- SCAN Mode 🔍🧐 -----')
+	print(colored("[*] ", "yellow")+colored("SCAN Mode", attrs=["bold", "underline"])+" 🔍🧐")
 
+	new_dir = create_reports_dir(args)
+	if new_dir == None:
+		exit(1)
+	
+	# nmap
+	print(colored("[+]", "green") + " Scanning host: "+colored(args.host, "light_yellow", attrs=["bold"]))
+	nmap_file = os.path.join(new_dir, "nmap.scan")
+	command = [ 'nmap', '-p-', '-sV', '-sC', '--min-rate', '5000', '-Pn', '-n', '-oN', nmap_file, args.host ]
+	result = subprocess.run(command, capture_output=True, text=True)
+	if result.returncode == 0:
+		print(colored("[+]", "green") + " nmap scan completed successfully!\n")
+	else:
+		print(colored("[!]", "red") + " Scan failed. Aborting...\n")
+
+def fuzz(args):
+	print(colored("[*]", "yellow")+" FUZZ Mode ⚡💣")
+
+def print_banner():
+	print(pyfiglet.figlet_format("SepeScan", font = "slant"))
+
+def signal_handler(sig, frame):
+    print(colored("[!]", "red") + " Ctrl+C pressed. Aborting...\n")
+    exit(1) 
+
+def create_reports_dir(args):
 	base_path = os.getcwd()
 	dir = 'sepescan_report'
 
@@ -15,15 +44,10 @@ def scan(args):
 	new_dir = os.path.join(base_path, dir)
 	try:
 		os.makedirs(new_dir, exist_ok=True)
+		return new_dir
 	except Exception as e:
 		print(f'Error creating directory: {e}')
-
-
-
-def fuzz(args):
-    print('----- FUZZ Mode ⚡💣 -----')
-
-
+		return None
 
 def main():
 	# Parser configuration
@@ -52,11 +76,13 @@ def main():
 	args = mainParser.parse_args()
 
 	if 'func' in args:
+		print_banner()
 		args.func(args)
 	else:
 		mainParser.print_help()
 
 
 if __name__ == "__main__":
-    main()
+	signal.signal(signal.SIGINT, signal_handler)
+	main()
 
