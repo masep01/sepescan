@@ -7,32 +7,58 @@ import signal
 from termcolor import colored
 import pyfiglet 
 
-def scan(args):
-	print(colored("[*] ", "yellow")+colored("SCAN Mode", attrs=["bold", "underline"])+" 🔍🧐")
+def launch_scan(tool, host, dir):
+	file = os.path.join(dir, f"{tool}.scan")
+	commands = {
+		'nmap' : [ 'nmap', '-p-', '-sV', '-sC', '--min-rate', '5000', '-Pn', '-n', '-oN', file, host ],
+		'nikto' : [ 'nikto', '-h', host, '-p', '443', '-o', file, '-Format', 'txt'],
+		'whatweb' : [ 'whatweb', '--color=always', '-v', '-a', '3', host ]
+	}
+	command = commands.get(tool)
+	
+	result = ''
+	if tool == 'whatweb':
+		try:
+			with open(file, "w") as output:
+				result = subprocess.run(command, stdout=output, stderr=subprocess.PIPE, universal_newlines=True)
+		
+		except Exception as e:
+			print(colored("[!]", "red") + f" An error occurred: {e}")
+	else:
+		result = subprocess.run(command, capture_output=True, text=True)
 
+	if result.returncode == 0:
+		print(colored("[+]", "green") + f" {tool} scan completed successfully!\n")
+	else:
+		print(colored("[!]", "red") + f" {tool} scan failed. Aborting...\n")
+		exit(1)
+
+def scan(args):
+	print(colored("[*] ", "light_magenta")+colored("SCAN Mode", attrs=["bold"])+" 🔍🧐\n")
+
+	# Checking requirements
+	print(colored("[*] ", "light_yellow")+colored("Checking requirements...\n"))
+	if not check_requirements(["nmap", "whatweb", "nikto"]):
+		print(colored("[!]", "red") + " Some program may not installed. Please check requirements.\n")
+		exit(1)
+
+	# Create reports directory
 	new_dir = create_reports_dir(args)
 	if new_dir == None:
 		exit(1)
 	
-	# nmap
-	print(colored("[+]", "green") + " Scanning host: "+colored(args.host, "light_yellow", attrs=["bold"]))
-	nmap_file = os.path.join(new_dir, "nmap.scan")
-	command = [ 'nmap', '-p-', '-sV', '-sC', '--min-rate', '5000', '-Pn', '-n', '-oN', nmap_file, args.host ]
-	result = subprocess.run(command, capture_output=True, text=True)
-	if result.returncode == 0:
-		print(colored("[+]", "green") + " nmap scan completed successfully!\n")
-	else:
-		print(colored("[!]", "red") + " Scan failed. Aborting...\n")
+	print(colored("[*]", "cyan") + " Scanning host: "+colored(args.host, "light_yellow", attrs=["bold"])+"\n")
+
+	# Scans
+	launch_scan('nmap', args.host, new_dir)
+	launch_scan('nikto', args.host, new_dir)
+	launch_scan('whatweb', args.host, new_dir)
+
+	print(colored("[*]", "cyan")+" Scan completed successfully. See results in "+colored(f"{new_dir}\n", "light_yellow"))
 
 def fuzz(args):
-	print(colored("[*]", "yellow")+" FUZZ Mode ⚡💣")
-
-def print_banner():
-	print(pyfiglet.figlet_format("SepeScan", font = "slant"))
-
-def signal_handler(sig, frame):
-    print(colored("[!]", "red") + " Ctrl+C pressed. Aborting...\n")
-    exit(1) 
+	print(colored("[*]", "yellow")+colored(" FUZZ Mode",attrs=["bold"])+" ⚡💣\n")
+	print("Coming soon...")
 
 def create_reports_dir(args):
 	base_path = os.getcwd()
@@ -48,12 +74,27 @@ def create_reports_dir(args):
 	except Exception as e:
 		print(f'Error creating directory: {e}')
 		return None
+	
+def check_requirements(programs):
+	for program in programs:
+		try:
+			subprocess.check_output(["which", program], stderr=subprocess.STDOUT, universal_newlines=True)
+		except subprocess.CalledProcessError:
+			return False
+	return True
+	
+def signal_handler(sig, frame):
+    print(colored("[!]", "red") + " Ctrl+C pressed. Aborting...\n")
+    exit(1) 
+
+def print_banner():
+	print(pyfiglet.figlet_format("SepeScan", font = "slant"))
 
 def main():
 	# Parser configuration
 	mainParser = argparse.ArgumentParser(
-		prog='SepeScan',
-		description='Scanning tool'
+		prog='sepescan',
+		description='Scanning tool by masep01.',
 	)
 
 	subParsers = mainParser.add_subparsers(dest='mode', help='Choose a mode')
